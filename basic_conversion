@@ -1,0 +1,95 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jan 22 16:43:46 2024
+
+@author: elias.garratt
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Nov 21 21:33:36 2023
+
+@author: elias.garratt and tia.gray
+"""
+
+import pandas as pd
+import csv
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+
+# Specify the string that marks the header
+header_string = "Angle"
+
+# Initialize a list to store the data rows
+data_rows = []
+
+# Prompt for file path from user, then use this file path to parse the data
+file_path = input("Please enter the file path of the x-ray diffraction data you would like to process:")
+# Remove any double quotes from the file path
+file_path = file_path.replace('"', '')
+with open(file_path, 'r', newline='') as csvfile:
+    reader = csv.reader(csvfile)
+    
+    # Variable to indicate if the header has been found
+    header_found = False
+    
+    for row in reader:
+        # Check if the header string is in the row
+        if header_string in row:
+            # Set header_found to True and continue to the next row
+            header_found = True
+            continue
+        
+        # If header is found, add the row to data_rows
+        if header_found:
+            data_rows.append(row)
+
+# Convert the list of data rows into a DataFrame
+file = pd.DataFrame(data_rows, columns=None)  # Assumes no header row in data
+
+col_names = ["Angle", "Thingy", "Intensity", "residual"]
+
+file.columns = col_names
+file = file.drop(columns = "Thingy")
+file = file.astype(float)
+
+# Print the DataFrame
+print("The original file is: \n",file,"\n")
+
+# Find the row with the maximum Intensity value
+max_intensity_row = file.loc[file['Intensity'].idxmax()]
+
+# Get the values and column names
+values = max_intensity_row.values
+columns = max_intensity_row.index
+
+# Create a dictionary to store the values with their corresponding column names
+data_dict = {column: value for column, value in zip(columns, values)}
+print("The row containing the values used to center and generate the data slice is: \n",data_dict,"\n")
+
+# manipulate 2Theta, Omega, Qx, and Qy columns to correct their (x, y) zeros to the location of the maximum intensity value
+file['angle_centered'] = file['Angle']-data_dict['Omega']
+file['angle_arcsecond'] = file['angle_centered']*3600
+file['Intensity_normalized'] = file['Intensity']/data_dict['Intensity']
+
+print("The new data file is: ", file)
+
+# Extract the x & y from the “file” data
+x = file['angle_arcsecond']
+y = file['Intensity_normalized']
+
+# show line graph of data to assist user in providing initial guesses for model parameters
+plt.plot(x, y, label='Data')
+plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
+plt.xlabel('Subtended Angle (arcseconds)')
+plt.ylabel('Normalized Intensity')
+plt.title("Diffraction Curve Visualization")
+plt.grid(True)
+plt.legend()
+print("This is a graph of your X-ray Diffraction Point Scan.")
+plt.show()
+
+# saving the file + fitting
+user_input_data = input("Enter a name for the processed DataFrame: ")
+file_name_data = user_input_data + '.csv'
+file.to_csv(file_name_data, index=False)
